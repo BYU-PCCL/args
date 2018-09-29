@@ -106,7 +106,7 @@ def module(arg_name, class_list, **kwargs):
   
   # add the argument which decides the class
   _parser.add_argument('--' + arg_name,
-                      default=class_list[0], 
+                      default=kwargs['default'] if 'default' in kwargs else class_list[0], 
                       metavar='class', 
                       help='{%(choices)s} (default: %(default)s)', 
                       choices={o.__name__:o for o in class_list}, 
