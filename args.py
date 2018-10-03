@@ -108,7 +108,7 @@ def module(arg_name, class_list, **kwargs):
   _parser.add_argument('--' + arg_name,
                       default=kwargs['default'] if 'default' in kwargs else class_list[0], 
                       metavar='class', 
-                      help='{%(choices)s} (default: %(default)s)', 
+                      help='{%(choices)s} (default: %(default)s)' if len(class_list) > 1 else argparse.SUPPRESS, 
                       choices={o.__name__:o for o in class_list}, 
                       action=DictAction)
    
