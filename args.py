@@ -1,7 +1,7 @@
 import argparse
 import sys
 import inspect
-from collections import defaultdict
+from collections import defaultdict, Iterable
 import json
 import os
 import colorama
@@ -16,17 +16,26 @@ _defaults = {}
 _reconstructed_arguments = {}
 _helpless_args = [a for a in sys.argv if a != '-h' and a != '--help']
 
+def _flatten(input):
+    new_list = []
+    if isinstance(input, Iterable):
+      for i in input:
+        new_list += _flatten(i)
+      return new_list
+    else:
+      return [input]
+
 class DictAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
       parsed_class = self.choices.get(values, self.default)
       setattr(namespace, self.dest, parsed_class)
 
 def argignore(cls):
-  class Wrapper(object):
+  class _Wrapper(object):
     def __init__(self, *args, **kwargs):
       cls.__argignore__ = True
 
-  return Wrapper
+  return _Wrapper
 
 # def arggroup(cls, group_name):
 #   class Wrapper(object):
@@ -36,8 +45,8 @@ def argignore(cls):
 
 class argchoice(object):
   def __init__(self, *args):
-    choices = args
-    self.choices = [x for sl in choices for x in sl]
+    print(args[0])
+    self.choices = _flatten(args)
     
   def __getitem__(self, i):
     return self.choices[i]
@@ -73,6 +82,9 @@ def _arg(arg_name, *args, **kwargs):
   if 'help' not in kwargs:
     kwargs['help'] = kwargs['type'].__name__ + ' default: %(default)s'
     
+  if '._' in arg_name or arg_name[0] == '_':
+      kwargs['help'] = argparse.SUPPRESS
+
   if kwargs['type'] == bool:
     # https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
     def strbool(v):
@@ -97,12 +109,13 @@ def module(arg_name, class_list, **kwargs):
   filtered_classes = []
   for m in class_list:
     if inspect.ismodule(m):
-      all_classes = [getattr(m, x) for x in dir(m) if inspect.isclass(getattr(m, x))]
+      # add the classes that are direct submodules of the requested module
+      all_classes = [getattr(m, x) for x in dir(m) if inspect.isclass(getattr(m, x)) and getattr(m, x).__module__ == m.__name__]
       filtered_classes += [c for c in all_classes if not hasattr(c, '__argignore__')]
   class_list += filtered_classes
   
   # remove the modules from the list
-  class_list[:] = [c for c in class_list if inspect.isclass(c)]
+  class_list[:] = [c for c in class_list if inspect.isclass(c) and c.__name__[0] != '_']
   
   # add the argument which decides the class
   _parser.add_argument('--' + arg_name,
@@ -205,7 +218,7 @@ def defaults(d=None):
 class reader():
   def __init__(self, ):
     defaults()
-    self.parsed_args = vars(_parser.parse_known_args(sys.argv)[0])
+    self.parsed_args = vars(_parser.parse_args())
     self.parsed_args.update(_reconstructed_arguments)
     self.default_arguments = {a.option_strings[0][2:]: a.default for a in _parser._actions}
 
@@ -231,6 +244,13 @@ class reader():
   
   def __iter__(self):
     return iter(self.parsed_args)
+
+  def stub(self):
+    stub = []
+    for arg in self.parsed_args:
+      if not self.isdefault(arg):
+        stub += ['{}={}'.format(arg, repr(self.parsed_args[arg]))]
+    return ','.join(stub)
   
   def command(self):
     return ' '.join(sys.argv)
