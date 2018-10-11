@@ -249,8 +249,8 @@ class reader():
     stub = []
     for arg in self.parsed_args:
       if not self.isdefault(arg):
-        stub += ['{}={}'.format(arg, repr(self.parsed_args[arg]))]
-    return ','.join(stub)
+        stub += ['{}={}'.format(arg, repr(self.parsed_args[arg]) if type(self.parsed_args[arg]) != str else self.parsed_args[arg])]
+    return '-'.join(stub)
   
   def command(self):
     return ' '.join(sys.argv)
